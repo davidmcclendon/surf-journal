@@ -10,7 +10,7 @@
 library(shiny)
 
 # Define server logic required to draw a histogram
-shinyServer(function(input, output) {
+shinyServer(function(input, output, session) {
     
     #Last updated ######################################
     output$last_updated <- renderUI(
@@ -66,18 +66,38 @@ shinyServer(function(input, output) {
         return(data)
     })
     
+    #Submit password
     observeEvent(input$submit, {
-        s3saveRDS(input_data(),
-                  bucket = "surf-journal", 
-                  object = "surk-journal-data.rds")
-
-        shinyjs::reset("form")
-        shinyjs::hide("form")
-        shinyjs::show("thankyou_msg")
+        showModal(
+            modalDialog(
+                title = "Enter password to submit data",
+                textInput(inputId = "password_input", "Type password"),
+                actionButton("submit_pw", "Submit password"),
+                easyClose = T
+            )
+        )
         
-        #Pull data again; refresh
-        old_data <- loadData()
-        old_data_sf <- loadData() %>% st_as_sf(., coords = c("surfed_where_lng", "surfed_where_lat"), crs=wgs84)
+    })
+    
+    #Submit data
+    observeEvent(input$submit_pw, {
+        #password protection
+        if (input$password_input == app_password) {
+            #Save data
+            s3saveRDS(input_data(),
+                      bucket = "surf-journal",
+                      object = "surf-journal-data.rds")
+            
+            removeModal()
+            shinyjs::reset("form")
+            shinyjs::hide("form")
+            shinyjs::show("thankyou_msg")
+
+            #Refresh the data
+            old_data <- loadData()
+            old_data_sf <- loadData() %>% st_as_sf(., coords = c("surfed_where_lng", "surfed_where_lat"), crs=wgs84)
+        } 
+
     })
     
     #Submit another and reset form #############################
