@@ -10,11 +10,13 @@
 library(tidyverse)
 library(shiny)
 library(leaflet)
+library(leaflet.extras)
 library(sf)
 library(config)
 library(aws.s3)
 library(shinyjs)
 library(shinyWidgets)
+library(DT)
 
 source("read-data.R")
 
@@ -43,21 +45,10 @@ shinyUI(
                             )
                      ),
                      column(4,
-                            selectizeInput(
-                                inputId = "surfed_with",
-                                label = "Who I surfed with",
-                                choices = c('Start typing...' = '', unique(old_data$surfed_with)),
-                                selected = NULL,
-                                options = list(create = T, placeholder = 'Start typing...')
-                            )
+                            uiOutput("surfed_with")
                      ),
                      column(4,
-                            selectizeInput(
-                                inputId = "surfed_where_text",
-                                label = "Where I surfed",
-                                choices = c('Start typing...' = '', unique(old_data$surfed_where_text)),
-                                options = list(create = T, placeholder = 'Start typing...')
-                            )
+                            uiOutput("surfed_where_text")
                      )
                  ),
                  
@@ -86,6 +77,7 @@ shinyUI(
                      )
                  ),
                  actionButton("submit", "Submit", class = "btn-primary"),
+                 actionButton("refresh_data", "Refresh data", class = "btn-primary"),
                  fluidRow(style = "padding-bottom:30px;")
                  
              ),
@@ -96,6 +88,11 @@ shinyUI(
                      actionLink("submit_another", "Submit another response")
                  )
              )  
+    ),
+    
+    tabPanel("Data",
+             DT::dataTableOutput("data_table")
+        
     )
 
     

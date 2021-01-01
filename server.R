@@ -12,22 +12,64 @@ library(shiny)
 # Define server logic required to draw a histogram
 shinyServer(function(input, output, session) {
     
+    #Load data #######################################
+    df <- eventReactive(input$refresh_data, {
+        df <- loadData()
+        return(df)
+    }, ignoreNULL = FALSE)
+    
+    sf <- reactive({
+        df() %>% 
+            filter(!is.na(surfed_where_lng)) %>% 
+            st_as_sf(., coords = c("surfed_where_lng", "surfed_where_lat"), crs=wgs84)
+    })
+    
     #Last updated ######################################
     output$last_updated <- renderUI(
-        HTML(paste0("<em>Last updated: ", unique(max(old_data$date_entered)), "</em>"))
+        HTML(paste0("<em>Last updated: ", unique(max(df()$date_entered)), "</em>"))
+    )
+    
+    #Dynamic UI ########################################
+    output$surfed_with <- renderUI(
+        selectizeInput(
+            inputId = "surfed_with",
+            label = "Who I surfed with",
+            choices = c('Start typing...' = '', unique(df()$surfed_with)),
+            selected = NULL,
+            options = list(create = T, placeholder = 'Start typing...')
+        )
+    )
+    
+    output$surfed_where_text <- renderUI(
+        selectizeInput(
+            inputId = "surfed_where_text",
+            label = "Where I surfed",
+            choices = c('Start typing...' = '', unique(df()$surfed_where_text)),
+            options = list(create = T, placeholder = 'Start typing...')
+        )
     )
     
     #Input map #########################################
     output$inputMap <- renderLeaflet(
         leaflet() %>%
-            addProviderTiles("CartoDB.Positron", group="Greyscale") %>%
-            setView(zoom=12, lat=29.3013, lng=-94.7977) %>% 
-            addCircleMarkers(
-                data = old_data_sf,
-                radius = 6,
-                stroke = F, fillOpacity = 0.5
-            )
+            addProviderTiles("Stamen.Watercolor") %>%
+            addProviderTiles(providers$Stamen.TonerLines,
+                             options = providerTileOptions(opacity = 0.35)) %>%
+            addProviderTiles(providers$Stamen.TonerLabels) %>% 
+            setView(zoom=12, lat=29.3013, lng=-94.7977)  
+            
     )
+    
+    observe({
+        leafletProxy("inputMap") %>% 
+            clearGroup("old_markers") %>% 
+            addCircleMarkers(
+                data = sf(),
+                radius = 6,
+                stroke = F, fillOpacity = 0.9,
+                group = "old_markers"
+            )
+    })
     
     
     #Click map, store lng/lat, drop pin #################
@@ -62,7 +104,7 @@ shinyServer(function(input, output, session) {
             wave_height = c(input$wave_height),
             notes = c(input$notes)
         )
-        data <- rbind(old_data, new_data)
+        data <- rbind(df(), new_data)
         return(data)
     })
     
@@ -88,14 +130,18 @@ shinyServer(function(input, output, session) {
                       bucket = "surf-journal",
                       object = "surf-journal-data.rds")
             
+            # mywrite <- function(x, file) { write.csv(x, file, row.names=FALSE) }
+            # 
+            # s3write_using(input_data(), FUN = mywrite,
+            #               bucket = "surf-journal",
+            #               opts = list(acl = "public-read"),
+            #               object = "surf-journal-data.csv")
+            
             removeModal()
             shinyjs::reset("form")
             shinyjs::hide("form")
             shinyjs::show("thankyou_msg")
-
-            #Refresh the data
-            old_data <- loadData()
-            old_data_sf <- loadData() %>% st_as_sf(., coords = c("surfed_where_lng", "surfed_where_lat"), crs=wgs84)
+            
         } 
 
     })
@@ -109,6 +155,11 @@ shinyServer(function(input, output, session) {
         leafletProxy('inputMap') %>% 
             clearGroup("drop_pin")
     })  
+    
+    #Data table
+    output$data_table <- DT::renderDataTable({
+        df() %>% dplyr::select(-notes)
+    })
 
 
 })
