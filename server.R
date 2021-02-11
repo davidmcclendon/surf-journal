@@ -130,13 +130,6 @@ shinyServer(function(input, output, session) {
                       bucket = "surf-journal",
                       object = "surf-journal-data.rds")
             
-            # mywrite <- function(x, file) { write.csv(x, file, row.names=FALSE) }
-            # 
-            # s3write_using(input_data(), FUN = mywrite,
-            #               bucket = "surf-journal",
-            #               opts = list(acl = "public-read"),
-            #               object = "surf-journal-data.csv")
-            
             removeModal()
             shinyjs::reset("form")
             shinyjs::hide("form")
